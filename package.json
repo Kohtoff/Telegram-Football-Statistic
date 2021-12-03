@@ -1,0 +1,22 @@
+{
+  "name": "telegram_bot_cursach",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon index.js",
+    "start": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.54.0",
+    "nodemon": "^2.0.15",
+    "promise": "^8.1.0",
+    "sqlite-sync": "^0.3.9",
+    "sqlite3": "^5.0.2",
+    "tedious": "^14.0.0"
+  }
+}
