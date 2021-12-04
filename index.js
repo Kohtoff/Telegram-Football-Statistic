@@ -83,15 +83,12 @@ bot.onText(/\/get ([^;'\"]+)/, (msg, match) => {
   const message = getMessage(key);
   //* Cheking if the key exist in the library
   if (message.exists) {
-    //    const message = library[key]; //* get an Object
     bot.forwardMessage(msg.chat.id, message.from_id, message.message_id);
   }
   // send back the matched "whatever" to the chat
 });
 
-//* GET LIST of messages for current user
-//TODO: 29.05.21 --DONE--  view the list only for admin |   if (msg.from.id !== 672742595) return;
-//TODO: 29.05.21 --DONE--  view the list only for user
+//* GET LIST of data
 bot.onText(/\/list/, (msg) => {
   const chatId = msg.chat.id;
   const fromId = msg.from.id;
@@ -114,35 +111,32 @@ bot.onText(/\/list/, (msg) => {
 });
 
 //*DELETE function
-//TODO: 29.05.21 --DONE-- need to check can user delet or not, if user add he can delete, if not user add message he can't delete message | need make a function that will check a user from_id
-bot.onText(/\/remove ([^;'\"]+)/, (msg, match) => {
-  // const chatId = msg.chat.id;
-  const key = match[1];
-  console.log(key);
-  // const message = getMessage(key);
+bot.onText(/\/remove ([^;'\"]+) ([^;'\"]+) ([^;'\"]+)/, (msg, match) => {
+  console.log('here');
+  const table = firstLetterToUpper(match[1]);
+  const column = firstLetterToUpper(match[2]);
+  const value = match[3];
+  console.log(table, column, value);
 
-  // if (!message.exists) return; //if there is no messsage from user ---> exit
-  // if (message.from_id !== msg.from.id) return;
-  // if there is message with the key, we need to check. that message that user send now need equals to the message from db
-  sqlite.delete("Team", { ID: key }, function (res) {
+  sqlite.delete(`${table}`, { [column]: value }, function (res) {
     //Check if there is an err
-    if (!res.error) {
-      bot.sendMessage(msg.chat.id, "Your message was delete"); // will get what was send to the function  bot.on
+    console.log(res);
+    if (res.error) {
+      bot.sendMessage(msg.chat.id, "Failed! Please, try later");
+      return console.log(res.error);
     }
-  }); //? delete messages from key where message = msg.from.id, not working ---> need to check
+    bot.sendMessage(msg.chat.id, "Your message was delete");
+  }); 
 });
 
 //* ADD message to database
 //* /add + hi(key)
 // add text [gif, audio, text, sticker]
-// TODO 1: 28.05.21 --DONE-- Check is key consist in database or not?
-// TODO 2: 28.05.21 --DONE-- add message from user to database
 const addMode = {}; //holding chatID and status
 bot.onText(/\/add ([^;'\"]+)/, (msg, match) => {
   const chatId = msg.chat.id;
   const key = match[1];
   let template;
-  //! addMode.chatID = {key: key, from: msg.from.id}; --NOT WORKING--
 
   addMode[chatId] = { key, chatId };
   switch (key) {
@@ -160,43 +154,21 @@ bot.onText(/\/add ([^;'\"]+)/, (msg, match) => {
   }
   const text = `Please input ${key} info using our template\nTEMPLATE:\n${template}`;
 
-  // var text = "";
-  // // Cheking if the key exist in database or not
-  // if (isMessageExists(key)) {
-  //   text = "Sorry, your message with this key already exists.";
-  // } else {
-  //   addMode[chatId] = { key: key, from: msg.from.id };
-  //   text =
-  //     "Please send a message that you want to save, " +
-  //     "or send /cancel for cancel.";
-  // }
+  
   bot.sendMessage(chatId, text);
 });
 
-//* CANCEL
-//! --DONE-- Your message is saved in telegram ---> need to fix it
-// bot.onText(/\/cancel/, (msg)  => {
-//   delete addMode[msg.chat.id];
-// });
-
-// Listen for any kind of message. There are different kinds of
-// messages.
-//TODO 3: 28.05.21 --DONE--  write id statement for add mode if in addmode there is no chat, just exit method but if add mode is is working for chat so it should save message to database
-//TODO 3: 28.05.21 --DONE--  find the correct operator for if statement to check consist or not (IN in SWITCH statement not good)
-//TODO 3: 28.05.21 --DONE-- Need to try if statement with in operator --DONE-- !WORKING!
-//TODO 3: 28.05.21 --DONE-- if add mode is in the chat need to add message to the database
-//*Send message
-
+//message listener
 bot.on("message", (msg) => {
   const chatId = msg.chat.id;
   const data = msg.text.split(",").map((item, index) => {
     return item.trim();
   });
   if (!(chatId in addMode)) {
-    //! Debugging: problem with a key check line 81 chatID
+    //! Debugging: problem with a key check
     return;
   }
-  //*CANCEL line 146
+  //*CANCEL insert
   if (typeof msg.text !== "undefined" && msg.text.toLowerCase() == "/cancel") {
     delete addMode[msg.chat.id];
     return;
@@ -204,18 +176,17 @@ bot.on("message", (msg) => {
 
   //* Insert to database
   console.log(addMode);
-  const key = addMode[chatId]["key"];
   switch (addMode[chatId]["key"]) {
+    //insert team to bd
     case "team":
-      const table =
-        addMode[chatId]["key"].charAt(0).toUpperCase() +
-        addMode[chatId]["key"].slice(1);
       sqlite.run(
         "INSERT INTO Team(`Name`, `history`, `Date_of_Birth`, `City_ID`) SELECT ?, ?, ?, City.ID FROM City where City.City_name = ?",
         data.map((item, index) => {
+          //string data to number. Temp solution
           if (index === 2) {
             item = +item;
           }
+          //replace double quotes to single
           if (typeof item === "string") {
             item = item.replace(/^["'](.+(?=["']$))["']$/, "$1");
             return item;
@@ -224,8 +195,6 @@ bot.on("message", (msg) => {
           return item;
         }),
         (res) => {
-          console.log(res, "msg");
-          console.log(res.error, "err");
           if (res.error) {
             bot.sendMessage(chatId, "Failed. Please, try later");
             return console.log(res.error);
@@ -238,14 +207,17 @@ bot.on("message", (msg) => {
       );
       break;
 
+    // insert new city to bd
     case "city":
       console.log("here");
       console.log(data, "in city");
       sqlite.run(
         "INSERT INTO City(`City_name`, `Country_ID`) SELECT ?, Country.ID FROM Country WHERE Country.Country_name = ?",
         data.map((item) => {
+          //capitalize first letters
           if (typeof item === "string") {
-            item = item.charAt(0).toUpperCase() + item.slice(1);
+            item = firstLetterToUpper(item);
+            //replace double quotes to single
             return (item = item.replace(/^["'](.+(?=["']$))["']$/, "$1"));
           }
           return item;
@@ -263,30 +235,28 @@ bot.on("message", (msg) => {
       );
       break;
 
+    //insert new country to db
     case "country":
       sqlite.run(
         "INSERT INTO Country(`Country_name`, `Region_ID`) SELECT ?, Region.ID FROM Region where Region.Region_name = ?",
         data.map((item) => {
           if (typeof item === "string") {
-            item = item.charAt(0).toUpperCase() + item.slice(1);
+            item = firstLetterToUpper(item);
             return (item = item.replace(/^["'](.+(?=["']$))["']$/, "$1"));
           }
           return item;
-        }), (res) => {
-          if(res.error){
-            bot.sendMessage(chatId, 'Failed. Please, try later')
+        }),
+        (res) => {
+          if (res.error) {
+            bot.sendMessage(chatId, "Failed. Please, try later");
             return console.log(res.error);
           }
-          bot.sendMessage(chatId, 'Success. Country added.')
+          bot.sendMessage(chatId, "Success. Country added.");
         }
       );
-    break;
-
-    // case 'match':
-    //   sqlite.run("IN")
+      break;
   }
-  // console.log('Success', addMode[chatId]); //check keys and values
-  delete addMode[chatId]; //delete an onject from chatId
+  delete addMode[chatId]; //delete an object from chatId
 
   // send a message to the chat acknowledging receipt of their message
   // bot.sendMessage(chatId, JSON.stringify(msg)); // will get what was send to the function  bot.on
@@ -313,6 +283,13 @@ function getMessage(key) {
   }
   data[0].exists = true;
   return data[0];
+}
+
+function firstLetterToUpper(str){
+  if(typeof str !== 'string'){
+    return console.log('FAILED! Argument must be a string');
+  }
+  return str = str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 bot.on("polling_error", (msg) => console.log(msg));
