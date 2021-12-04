@@ -35,7 +35,6 @@ sqlite.run(
 //     message_id: 10
 // });
 
-
 //* -----SQLite DATABASE FINISH-----
 
 // replace the value below with the Telegram token you receive from @BotFather
@@ -73,7 +72,6 @@ bot.onText(/\/start/, (msg) => {
     (msg) => console.log(msg.error)
   );
 });
-
 
 //* GET message from database
 bot.onText(/\/get ([^;'\"]+)/, (msg, match) => {
@@ -120,12 +118,13 @@ bot.onText(/\/list/, (msg) => {
 bot.onText(/\/remove ([^;'\"]+)/, (msg, match) => {
   // const chatId = msg.chat.id;
   const key = match[1];
-  const message = getMessage(key);
+  console.log(key);
+  // const message = getMessage(key);
 
-  if (!message.exists) return; //if there is no messsage from user ---> exit
-  if (message.from_id !== msg.from.id) return;
+  // if (!message.exists) return; //if there is no messsage from user ---> exit
+  // if (message.from_id !== msg.from.id) return;
   // if there is message with the key, we need to check. that message that user send now need equals to the message from db
-  sqlite.delete("messages", { key: key }, function (res) {
+  sqlite.delete("Team", { ID: key }, function (res) {
     //Check if there is an err
     if (!res.error) {
       bot.sendMessage(msg.chat.id, "Your message was delete"); // will get what was send to the function  bot.on
@@ -142,20 +141,25 @@ const addMode = {}; //holding chatID and status
 bot.onText(/\/add ([^;'\"]+)/, (msg, match) => {
   const chatId = msg.chat.id;
   const key = match[1];
+  let template;
   //! addMode.chatID = {key: key, from: msg.from.id}; --NOT WORKING--
 
   addMode[chatId] = { key, chatId };
   switch (key) {
     case "team":
-      text =
-        "Please input team info using our template\nTEMPLATE:\nName, description, date-of-birth, city name";
+      template = "Name, description, date-of-birth, city name";
       break;
 
     case "city":
-      text =
-        "Please input city info using our template\nTEMPLATE:\nCity name, Country name";
+      template = "City name, Country name";
+      break;
+
+    case "country":
+      template = "Counrty name, Region Name";
       break;
   }
+  const text = `Please input ${key} info using our template\nTEMPLATE:\n${template}`;
+
   // var text = "";
   // // Cheking if the key exist in database or not
   // if (isMessageExists(key)) {
@@ -209,13 +213,14 @@ bot.on("message", (msg) => {
       sqlite.run(
         "INSERT INTO Team(`Name`, `history`, `Date_of_Birth`, `City_ID`) SELECT ?, ?, ?, City.ID FROM City where City.City_name = ?",
         data.map((item, index) => {
-          if (index === 0) {
+          if (index === 2) {
             item = +item;
           }
           if (typeof item === "string") {
             item = item.replace(/^["'](.+(?=["']$))["']$/, "$1");
             return item;
           }
+          console.log(item);
           return item;
         }),
         (res) => {
@@ -256,6 +261,29 @@ bot.on("message", (msg) => {
           );
         }
       );
+      break;
+
+    case "country":
+      sqlite.run(
+        "INSERT INTO Country(`Country_name`, `Region_ID`) SELECT ?, Region.ID FROM Region where Region.Region_name = ?",
+        data.map((item) => {
+          if (typeof item === "string") {
+            item = item.charAt(0).toUpperCase() + item.slice(1);
+            return (item = item.replace(/^["'](.+(?=["']$))["']$/, "$1"));
+          }
+          return item;
+        }), (res) => {
+          if(res.error){
+            bot.sendMessage(chatId, 'Failed. Please, try later')
+            return console.log(res.error);
+          }
+          bot.sendMessage(chatId, 'Success. Country added.')
+        }
+      );
+    break;
+
+    // case 'match':
+    //   sqlite.run("IN")
   }
   // console.log('Success', addMode[chatId]); //check keys and values
   delete addMode[chatId]; //delete an onject from chatId
