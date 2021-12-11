@@ -17,6 +17,8 @@
     "promise": "^8.1.0",
     "sqlite-sync": "^0.3.9",
     "sqlite3": "^5.0.2",
+    "table": "^6.7.5",
+    "tabulate": "^1.0.0",
     "tedious": "^14.0.0"
   }
 }

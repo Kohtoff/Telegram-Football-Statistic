@@ -2,12 +2,20 @@
 const TelegramBot = require("node-telegram-bot-api");
 //! To save this library to database should use npm: https://www.npmjs.com/package/sqlite-sync
 var sqlite = require("sqlite-sync"); //requiring
+let table = require("table");
+
+// Predefined styles of table
+let config = {
+  drawHorizontalLine: (lineIndex, rowCount) => {
+    return lineIndex === 0 || lineIndex === 1 || lineIndex === rowCount;
+  },
+};
 
 //Connecting - if the file does not exist it will be created
 sqlite.connect("./db/cursach.db");
 
 //* -----SQLite DATABASE START-----
-// Create table
+//Create table
 //Creating table - you can run any command
 sqlite.run(
   `CREATE TABLE IF NOT EXISTS Users(
@@ -21,27 +29,8 @@ sqlite.run(
   }
 );
 
-// insert keys to table
-// Inserting - this function can be sync to, look the wiki
-// sqlite.insert("messages", {
-//     key: "test",
-//     from_id: 672742595,
-//     message_id: 8
-// });
-
-// sqlite.insert("messages", {
-//     key:"hello",
-//     from_id: 672742595,
-//     message_id: 10
-// });
-
-//* -----SQLite DATABASE FINISH-----
-
-// replace the value below with the Telegram token you receive from @BotFather
-//? How to put tokken in configuration
 const token = "2128129298:AAFA1UzIeGP81RMeR4cuREdKBMtA09or330";
 
-// Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot(token, { polling: true });
 
 //* Starting Description
@@ -61,7 +50,6 @@ bot.onText(/\/start/, (msg) => {
       "`/list`\n" +
       "To remove message use command:\n" +
       "`/remove key`\n"
-    // { parse_mode: "Markdown" }
   );
   sqlite.insert(
     "Users",
@@ -75,17 +63,26 @@ bot.onText(/\/start/, (msg) => {
 
 //* GET message from database
 bot.onText(/\/get ([^;'\"]+)/, (msg, match) => {
-  //([^;'/"]))/ - limit key for symbols for better security | (.+)/
-  // 'msg' is the received Message from Telegram
-  // 'match' is the result of executing the regexp above on the text content
-  // of the message
-  const key = match[1]; // the captured "whatever"
-  const message = getMessage(key);
-  //* Cheking if the key exist in the library
-  if (message.exists) {
-    bot.forwardMessage(msg.chat.id, message.from_id, message.message_id);
-  }
-  // send back the matched "whatever" to the chat
+  const chatID = msg.chat.id;
+  const key = match[1];
+  // getMatchWithGoals(key)
+  // getPlayerWhoScoreLaterThen(key);
+  // getPlayerWithSurnameOn(key)
+  // getTeamWithFirstLetter(key)
+  // const response = getGoalInPeriod(key, chatID);
+  // getMatchByPeriod(key, chatID)
+  // howMuchGoals(key, chatID)
+  // howMuchWins(key, chatID)
+  // topScorers(chatID)
+  // topWiners(chatID);
+  // theGreatestAmountOfPlayers(chatID);
+  // getLoosersOfYear(chatID)
+  // getLeastScorer(chatID)
+  // freeAgent(chatID)
+  // getHigherAndLowerSalary(chatID)
+  // getMaxAndMinWins(chatID)
+  // getGoalsInMatches(chatID)
+  getSumOfGoalsInMatch(chatID)
 });
 
 //* GET LIST of data
@@ -112,7 +109,7 @@ bot.onText(/\/list/, (msg) => {
 
 //*DELETE function
 bot.onText(/\/remove ([^;'\"]+) ([^;'\"]+) ([^;'\"]+)/, (msg, match) => {
-  console.log('here');
+  console.log("here");
   const table = firstLetterToUpper(match[1]);
   const column = firstLetterToUpper(match[2]);
   const value = match[3];
@@ -126,7 +123,7 @@ bot.onText(/\/remove ([^;'\"]+) ([^;'\"]+) ([^;'\"]+)/, (msg, match) => {
       return console.log(res.error);
     }
     bot.sendMessage(msg.chat.id, "Your message was delete");
-  }); 
+  });
 });
 
 //* ADD message to database
@@ -154,7 +151,6 @@ bot.onText(/\/add ([^;'\"]+)/, (msg, match) => {
   }
   const text = `Please input ${key} info using our template\nTEMPLATE:\n${template}`;
 
-  
   bot.sendMessage(chatId, text);
 });
 
@@ -262,39 +258,276 @@ bot.on("message", (msg) => {
   // bot.sendMessage(chatId, JSON.stringify(msg)); // will get what was send to the function  bot.on
 });
 
-//* Function to Check if the key in the library,
-//? will try later to put in a one function --DONE--
-function isMessageExists(key) {
-  //sql request
-  return (
-    sqlite.run("SELECT COUNT(*) as cnt FROM messages WHERE `key` = ?", [key])[0]
-      .cnt !== 0
-  ); //cnt = alias, amount of messages cant be = 0
+function firstLetterToUpper(str) {
+  if (typeof str !== "string") {
+    return console.log("FAILED! Argument must be a string");
+  }
+  return (str = str.charAt(0).toUpperCase() + str.slice(1));
 }
 
-//* Get message by it's own key
-function getMessage(key) {
-  //sql request
-  const data = sqlite.run("SELECT * FROM messages WHERE `key` = ? LIMIT 1", [
-    key,
-  ]); //cnt = alias, amount of messages cant be = 0
-  if (data.length == 0) {
-    return { exists: false };
-  }
-  data[0].exists = true;
-  return data[0];
+//bd queries
+function getMatchWithGoals(team, chatID) {
+  const data = sqlite.run(
+    'SELECT * from "Match" where `Result_a` + `Result_B` > 1 and `TeamA_ID` = (SELECT `ID` from "Team" WHERE `Name` = $name) OR `TeamB_ID` = (SELECT `ID` from "Team" WHERE `Name` = $name)',
+    { $name: team },
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
 }
 
-function firstLetterToUpper(str){
-  if(typeof str !== 'string'){
-    return console.log('FAILED! Argument must be a string');
-  }
-  return str = str.charAt(0).toUpperCase() + str.slice(1);
+function getPlayerWhoScoreLaterThen(time, chatID) {
+  const data = sqlite.run(
+    'SELECT * FROM "Players" join "Goal" on "Goal".`Player_ID` = "Players".`ID` WHERE time("Goal".`Time`) > time($time)',
+    { $time: time },
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
 }
+
+function getPlayerWithSurnameOn(letter, chatID) {
+  const data = sqlite.run(
+    "SELECT * from Players WHERE Surname LIKE $letter",
+    { $letter: letter + "%" },
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function getTeamWithFirstLetter(letter, chatID) {
+  const data = sqlite.run(
+    "SELECT * from Team WHERE Name LIKE $letter",
+    { $letter: letter + "%" },
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function getGoalInPeriod(time, chatID) {
+  time = time.split(" ");
+  const data = sqlite.run(
+    "SELECT `Surname`, Goal.`Time` from Players join Goal on Goal.`Player_ID` = `Player_ID` where time(Goal.`Time`) BETWEEN time($firstLimit) AND time($secondLimit) and Goal.`Player_ID` = Players.`ID`",
+    { $firstLimit: time[0], $secondLimit: time[1] },
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function getMatchByPeriod(date, chatID) {
+  date = date.split(" ");
+  const data = sqlite.run(
+    'select date("Match".`Date`) as Match_Date, t1.`Name` as TeamA, t2.`Name` as TeamB from "Match" inner join Team t1 on t1.`ID` = "Match".`TeamA_ID` inner join Team t2 on t2.`ID` = "Match".`TeamB_ID` where Match_Date BETWEEN date($firstLimit) and date($secondLimit)',
+    { $firstLimit: date[0], $secondLimit: date[1] },
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      console.log(res);
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function howMuchGoals(name, chatID){
+  name = firstLetterToUpper(name)
+  const data = sqlite.run('SELECT COUNT(`Player_ID`) as amount_of_goals from Goal where `Player_ID` = (SELECT Players.`ID` from Players where Players.`Surname` = $name)',
+    { $name: name },
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      console.log(res);
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function howMuchWins(name, chatID){
+  name = firstLetterToUpper(name)
+  const data = sqlite.run('SELECT COUNT(*) as amount_of_wins from "Match" where "Match".Winner_ID = (SELECT Team.ID from Team where Team.Name = $name)',
+    { $name: name },
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      console.log(res);
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function topScorers (chatID){
+  const data = sqlite.run('SELECT Players.`Surname`, COUNT(`Player_ID`) as amount_of_goals from Goal inner join Players on Players.`ID` = Goal.`Player_ID` group by `Player_ID` ORDER by amount_of_goals DESC',
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      console.log(res);
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function topWiners (chatID){
+  const data = sqlite.run('SELECT Team.Name, City.City_name, COUNT(Winner_ID) as amount_of_wins from "Match" inner join Team on Team.`ID` = "Match".`Winner_ID` inner join City where City.`ID` = Team.`City_ID` group by `Winner_ID` order by amount_of_wins DESC',
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      console.log(res);
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function theGreatestAmountOfPlayers (chatID){
+  const data = sqlite.run('SELECT Team.`Name`, City.`City_name`, count("Team-Player".`Team_ID`) as "amount of players" from Team inner join City on City.`ID` = Team.`City_ID` inner join "Team-Player" on "Team-Player".`Team_ID` = Team.`ID` group by Team.`Name`, Team.`ID` HAVING  count("Team-Player".`Team_ID`) >= ( SELECT count("Team-Player".`Team_ID`) from "Team-Player" group by `Team_ID` )',
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      console.log(res);
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function getLoosersOfYear(chatID){
+  const data = sqlite.run('SELECT Team.`ID`, Team.`Name`, City.`City_name` from Team inner join City on City.`ID` = Team.`City_ID` where Team.`ID` not in (SELECT "Match".`Winner_ID` from "Match" WHERE date("Match".Date) >= date("now", "start of year") )',
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      console.log(res);
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function getLeastScorer(chatID){
+  const data = sqlite.run('SELECT Players.`ID`, Players.`Surname`, Team.`Name` from Players inner join "Team-Player" on "Team-Player".`Player_ID` = Players.`ID` inner join Team on Team.`ID` = "Team-Player".`Team_ID` where not EXISTS ( select Goal.`Player_ID` from Goal where Players.`ID` = Goal.`Player_ID` )',
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      console.log(res);
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function freeAgent(chatID){
+  const data = sqlite.run('SELECT Players.`Surname` from Players left join "Team-Player" on "Team-Player".`Player_ID` = Players.`ID` where "Team-Player".`Player_ID` is NULL',
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      console.log(res);
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function getMaxAndMinWins(chatID){
+  const data = sqlite.run('SELECT Team.`ID`, Team.`Name`, count("Match".`Winner_ID`) as amount_of_wins, "наибольшие кол-во побед" as `status` from Team inner join "Match" on Match.`Winner_ID` = Team.`ID` group by "Match".`Winner_ID` HAVING amount_of_wins >= ( select count("Match".`Winner_ID`) as count from "Match" group by "Match".`Winner_ID` ORDER BY -count LIMIT 1 ) UNION SELECT Team.`ID`, Team.`Name`, count("Match".`Winner_ID`) as amount_of_wins, "lowest кол-во побед" as `status` from Team inner join "Match" on Match.`Winner_ID` = Team.`ID` group by "Match".`Winner_ID` HAVING amount_of_wins <= ( select count("Match".`Winner_ID`) as count from "Match" group by "Match".`Winner_ID` ORDER BY count LIMIT 1)',
+  (res) => {
+    if (res.length > 0) {
+      return printResult(res, chatID);
+    }
+    console.log(res);
+    bot.sendMessage(chatID, "Something went wrong!");
+  }
+);
+return data;
+}
+
+function getHigherAndLowerSalary(chatID){
+  const data = sqlite.run('SELECT Players.`ID`, Players.`Surname`, "The most expensive" as `status`, MAX(Players.`Salary`) as Salary, Team.`Name` as Team from Players inner join "Team-Player" on "Team-Player".`Player_ID` = Players.`ID` inner join Team on Team.`ID` = "Team-Player".`Team_ID` UNION SELECT Players.`ID`, Players.`Surname`, "The cheapest" as `status`, MIN(Players.`Salary`) as Salary, Team.`Name` as Team from Players inner join "Team-Player" on "Team-Player".`Player_ID` = Players.`ID` inner join Team on Team.`ID` = "Team-Player".`Team_ID`',
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      console.log(res);
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function getGoalsInMatchesByPlayers(chatID){
+  const data = sqlite.run('SELECT Players.`Surname`, t1.`Name` || "-" || t2.`Name` as "Match", count(Goal.`Match_ID`) as "goals in match" from Goal inner join Players on Players.`ID` = Goal.`Player_ID` inner join "Match" on "Match".`ID` = Goal.`Match_ID` inner join Team t1 on t1.`ID` = "Match".`TeamA_ID` inner join Team t2 on t2.`ID` = "Match".`TeamB_ID` GROUP by "Match".`ID`, Players.`ID` having count(Goal.`Match_ID`) >= ( SELECT count(Goal.`Match_ID`) from Goal group by Goal.`Match_ID` ) ORDER BY -"goals in match"',
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      console.log(res);
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+function getSumOfGoalsInMatch(chatID){
+  const data = sqlite.run('SELECT t1.`Name` || "-" || t2.`Name` as "Match", m.`Date`, case when Goal.`ID` is null then 0 else count(Goal.`ID`) end as "goals" from "Match" m left join Goal on Goal.`Match_ID` = m.`ID` inner join Team t1 on t1.`ID` = m.`TeamA_ID` inner join Team t2 on t2.`ID` = m.`TeamB_ID` GROUP BY m.`ID`',
+    (res) => {
+      if (res.length > 0) {
+        return printResult(res, chatID);
+      }
+      console.log(res);
+      bot.sendMessage(chatID, "Something went wrong!");
+    }
+  );
+  return data;
+}
+
+
+function printResult(res, chatID) {
+  const titleRow = Array.from(Object.keys(res[0]));
+  const formatedResponse = [
+    titleRow,
+    ...res.map((obj) => {
+      const dataRow = Array.from(Object.values(obj));
+      return dataRow;
+    }),
+  ];
+  dataTable = table.table(formatedResponse, config);
+  bot.sendMessage(chatID, "```" + dataTable + "```", {
+    parse_mode: "Markdown",
+  });
+}
+
 
 bot.on("polling_error", (msg) => console.log(msg));
-//? Others:
-//? Telegram bot npm: https://www.npmjs.com/package/node-telegram-bot-api
-//? How to debug un vs code: https://www.youtube.com/watch?v=6cOsxaNC06c&t=257s
-//? node.js package for database connection with SQLite , and execute SQL commands synchronously or asynchronously: https://www.npmjs.com/package/sqlite-sync
-//? SQLite commands: https://www.sqlitetutorial.net/sqlite-commands/
