@@ -29,7 +29,7 @@ sqlite.run(
   }
 );
 
-const token = "2128129298:AAFA1UzIeGP81RMeR4cuREdKBMtA09or330";
+const token = "";
 
 const bot = new TelegramBot(token, { polling: true });
 
